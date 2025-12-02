@@ -6,84 +6,85 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        if config.GEMINI_API_KEY:
+        if config.GROQ_API_KEY:
             self.client = AsyncOpenAI(
-                api_key=config.GEMINI_API_KEY,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+                api_key=config.GROQ_API_KEY,
+                base_url="https://api.groq.com/openai/v1"
             )
-            self.model = "gemini-1.5-flash"
+            self.model = "llama-3.3-70b-versatile"
         else:
-            self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
-            self.model = "gpt-4o"
+            logger.warning("GROQ_API_KEY not found. AI features will fail.")
+            self.client = None
+            self.model = None
 
     async def generate_note_content(self, transcript: str) -> str:
-        """
-        Generates a structured study note from the transcript using GPT-4o.
-        """
-        system_prompt = """
-        You are an expert tutor. Your goal is to create a perfect study guide from a video transcript.
-        
-        Output Format: Markdown.
-        Structure:
-        # [Title]
-        ## Overview
-        (3 lines summary)
-        ## Key Concepts
-        (Detailed explanation with H3 headers)
-        ## Vocabulary
-        (Table of important terms)
-        ## Quiz
-        (3 multiple choice questions in Toggle format if possible, or just Q&A)
-        """
-        
-        user_prompt = f"Here is the transcript:\n\n{transcript[:20000]}" # Truncate for safety if too long, though 4o context is large.
+        if not self.client:
+            raise ValueError("GROQ_API_KEY is missing")
 
+        prompt = f"""
+        You are an expert study assistant. Create a comprehensive study guide from the following YouTube transcript.
+        The output must be in Markdown format.
+        
+        Structure:
+        # Title
+        ## Summary
+        (Brief summary of the video)
+        ## Key Concepts
+        (Bulleted list of key points)
+        ## Detailed Notes
+        (In-depth explanation of the content)
+        ## Quiz
+        (3 multiple choice questions. Format each question using HTML <details> tags so the answer is hidden by default.
+        Example:
+        <details>
+        <summary>Question 1: ...</summary>
+        Answer: ...
+        </details>
+        )
+
+        Transcript:
+        {transcript[:15000]} 
+        """
+        
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
                 ],
-                temperature=0.2
+                temperature=0.7
             )
             return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"Failed to generate note content: {e}")
+            logger.error(f"Groq generation failed: {e}")
             raise
 
     async def generate_diagram(self, content: str) -> str:
-        """
-        Generates a Mermaid diagram based on the note content.
-        """
-        system_prompt = """
-        Create a Mermaid.js diagram that visualizes the key concepts of the provided text.
-        Return ONLY the mermaid code block, e.g.:
-        ```mermaid
-        graph TD
-        A --> B
-        ```
-        """
+        if not self.client:
+            raise ValueError("GROQ_API_KEY is missing")
+
+        prompt = f"""
+        Create a Mermaid.js diagram code that visualizes the key concepts from the following study guide.
+        Return ONLY the mermaid code block (e.g. graph TD...). Do not include markdown backticks.
         
+        Study Guide:
+        {content[:5000]}
+        """
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": content[:10000]}
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
                 ],
-                temperature=0.0
+                temperature=0.2
             )
-            # Extract code block if wrapped
-            raw = response.choices[0].message.content
-            if "```mermaid" in raw:
-                return raw.split("```mermaid")[1].split("```")[0].strip()
-            if "```" in raw:
-                return raw.split("```")[1].split("```")[0].strip()
-            return raw
+            return response.choices[0].message.content.strip()
         except Exception as e:
-            logger.error(f"Failed to generate diagram: {e}")
-            # Return empty or error string, don't fail the whole job
-            return ""
+            logger.error(f"Groq diagram generation failed: {e}")
+            # Return empty or None if diagram fails, don't fail the whole job
+            return None
 
 ai_service = AIService()

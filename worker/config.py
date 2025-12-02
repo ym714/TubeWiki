@@ -1,14 +1,15 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+from pathlib import Path
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 class Config:
     DATABASE_URL = os.getenv("DATABASE_URL")
     QSTASH_CURRENT_SIGNING_KEY = os.getenv("QSTASH_CURRENT_SIGNING_KEY")
     QSTASH_NEXT_SIGNING_KEY = os.getenv("QSTASH_NEXT_SIGNING_KEY")
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     NOTION_TOKEN = os.getenv("NOTION_TOKEN")
 
     @classmethod
@@ -17,7 +18,7 @@ class Config:
             raise ValueError("DATABASE_URL is missing")
         if not cls.QSTASH_CURRENT_SIGNING_KEY:
             raise ValueError("QSTASH_CURRENT_SIGNING_KEY is missing")
-        if not cls.OPENAI_API_KEY and not cls.GEMINI_API_KEY:
-            raise ValueError("Either OPENAI_API_KEY or GEMINI_API_KEY is required")
+        if not cls.GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is missing")
 
 config = Config()
