@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from core.api import notes
 from core.config import config
 from shared.db import init_db
@@ -8,7 +9,15 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="FlashNote AI Core")
+app = FastAPI(title="TubeWiki Core")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For development. In prod, specify extension ID.
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def on_startup():

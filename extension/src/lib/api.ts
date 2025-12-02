@@ -52,5 +52,27 @@ export const api = {
         }
 
         return response.json()
+
+    },
+
+    async getNoteByUrl(videoUrl: string): Promise<Note> {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) throw new Error('Not authenticated')
+
+        const response = await fetch(`${API_URL}/notes/by-url/?video_url=${encodeURIComponent(videoUrl)}`, {
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`
+            }
+        })
+
+        if (response.status === 404) {
+            throw new Error('Note not found')
+        }
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch note')
+        }
+
+        return response.json()
     }
 }

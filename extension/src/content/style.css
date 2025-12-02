@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#flashnote-ai-root {
+    position: fixed;
+    z-index: 2147483647;
+    /* Max z-index */
+    font-family: 'Roboto', sans-serif;
+    /* Match YouTube font */
+}
+
+/* Ensure our styles don't leak out, but also reset some defaults inside shadow DOM */
+:host {
+    all: initial;
+}

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase'
-import { Login } from './components/Login'
-import { api } from './lib/api'
-import type { Note } from './lib/api'
-import './index.css'
+import { supabase } from '../lib/supabase'
+import { Login } from '../components/Login'
+import { api } from '../lib/api'
+import type { Note } from '../lib/api'
+import '../index.css'
 
-function App() {
+function Popup() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [currentUrl, setCurrentUrl] = useState<string>('')
@@ -73,7 +73,7 @@ function App() {
   return (
     <div className="w-full h-screen bg-gray-50 p-4 overflow-y-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold text-gray-900">FlashNote AI</h1>
+        <h1 className="text-xl font-bold text-gray-900">TubeWiki</h1>
         <button
           onClick={() => supabase.auth.signOut()}
           className="text-xs text-gray-500 hover:text-gray-700"
@@ -109,8 +109,8 @@ function App() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <span className={`px-2 py-1 text-xs rounded-full ${note.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                note.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                  'bg-blue-100 text-blue-800'
+              note.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
               }`}>
               {note.status}
             </span>
@@ -146,4 +146,4 @@ function App() {
   )
 }
 
-export default App
+export default Popup

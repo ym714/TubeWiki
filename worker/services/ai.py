@@ -6,7 +6,15 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+        if config.GEMINI_API_KEY:
+            self.client = AsyncOpenAI(
+                api_key=config.GEMINI_API_KEY,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            )
+            self.model = "gemini-1.5-flash"
+        else:
+            self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+            self.model = "gpt-4o"
 
     async def generate_note_content(self, transcript: str) -> str:
         """
@@ -32,7 +40,7 @@ class AIService:
 
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -59,7 +67,7 @@ class AIService:
         
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": content[:10000]}

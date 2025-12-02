@@ -7,9 +7,7 @@ logger = logging.getLogger(__name__)
 
 class NotionService:
     def __init__(self):
-        # We assume NOTION_TOKEN is in env, though not in config.py yet.
-        # Let's add it to config.py later or just use os.getenv here.
-        self.token = os.getenv("NOTION_TOKEN")
+        self.token = config.NOTION_TOKEN
         if not self.token:
             logger.warning("NOTION_TOKEN not found. Notion integration will fail.")
         self.client = AsyncClient(auth=self.token)

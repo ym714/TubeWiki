@@ -46,3 +46,35 @@ async def create_note(
         raise HTTPException(status_code=500, detail="Failed to queue job")
 
     return {"message": "Job accepted", "note_id": new_note.id, "status": "PENDING"}
+
+@router.get("/notes/{note_id}", response_model=Note)
+async def get_note(
+    note_id: int,
+    session: AsyncSession = Depends(get_session),
+    user_id: str = Depends(get_current_user)
+):
+    note = await session.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    # Ensure user owns the note
+    if note.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this note")
+        
+    return note
+
+@router.get("/notes/by-url/", response_model=Note)
+async def get_note_by_url(
+    video_url: str,
+    session: AsyncSession = Depends(get_session),
+    user_id: str = Depends(get_current_user)
+):
+    from sqlmodel import select
+    statement = select(Note).where(Note.video_url == video_url, Note.user_id == user_id)
+    results = await session.exec(statement)
+    note = results.first()
+    
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found for this video")
+        
+    return note

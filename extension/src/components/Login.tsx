@@ -27,7 +27,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
 
     return (
         <div className="flex flex-col items-center justify-center h-full p-4 space-y-4">
-            <h1 className="text-2xl font-bold text-primary">FlashNote AI</h1>
+            <h1 className="text-2xl font-bold text-primary">TubeWiki</h1>
             <form onSubmit={handleLogin} className="w-full space-y-3">
                 <input
                     type="email"

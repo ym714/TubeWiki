@@ -7,5 +7,12 @@ python-dotenv
 openai
 httpx
 youtube-transcript-api
-upstash-qstash
+# upstash-qstash
 pyjwt
+pytest
+pytest-asyncio
+httpx
+pytest-cov
+pytest-mock
+aiosqlite
+notion-client
