@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlmodel
+asyncpg
+pydantic
+python-dotenv
+openai
+httpx
+youtube-transcript-api
+upstash-qstash
+pyjwt
