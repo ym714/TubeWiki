@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import ExportBar from './ExportBar'
+import ErrorBoundary from '../components/ErrorBoundary'
 import style from './style.css?inline'
 
 // YouTubeの動画ページでのみ実行
@@ -33,9 +34,13 @@ const injectExportBar = () => {
     styleElement.textContent = style
     shadowRoot.appendChild(styleElement)
 
-    // Reactアプリをマウント
+    // Reactアプリをマウント（ErrorBoundaryでラップ）
     const root = createRoot(shadowRoot)
-    root.render(<ExportBar />)
+    root.render(
+        <ErrorBoundary>
+            <ExportBar />
+        </ErrorBoundary>
+    )
 }
 
 // ページ読み込み時に実行
@@ -62,4 +67,3 @@ new MutationObserver(() => {
         }
     }
 }).observe(document, { subtree: true, childList: true })
-

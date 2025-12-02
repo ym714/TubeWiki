@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi.errors import RateLimitExceeded
 
 from core.api import notes, payment
 from core.middleware import error_handler_middleware, logging_middleware
+from core.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -16,6 +18,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Add rate limiter state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # CORS middleware
 app.add_middleware(

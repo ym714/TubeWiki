@@ -1,47 +1,72 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
-import logging
 
-logger = logging.getLogger(__name__)
+from shared.utils.logger import get_logger
+from shared.utils.retry import with_retry, timeout
+from shared.utils.exceptions import YouTubeAPIError, TranscriptNotAvailableError
+from shared.utils.validators import validate_youtube_url
+
+logger = get_logger(__name__)
+
 
 class YouTubeService:
     def extract_video_id(self, url: str) -> str:
         """
         Extracts video ID from various YouTube URL formats.
+        
+        Args:
+            url: YouTube URL
+            
+        Returns:
+            Video ID
+            
+        Raises:
+            InvalidYouTubeURLError: If URL is invalid
         """
-        parsed = urlparse(url)
-        if parsed.hostname == 'youtu.be':
-            return parsed.path[1:]
-        if parsed.hostname in ('www.youtube.com', 'youtube.com'):
-            if parsed.path == '/watch':
-                p = parse_qs(parsed.query)
-                return p['v'][0]
-            if parsed.path[:7] == '/embed/':
-                return parsed.path.split('/')[2]
-            if parsed.path[:3] == '/v/':
-                return parsed.path.split('/')[2]
-        # Fail safe or raise error
-        raise ValueError(f"Invalid YouTube URL: {url}")
+        return validate_youtube_url(url)
 
-    def get_transcript(self, video_url: str) -> str:
+    @with_retry(max_retries=3, initial_delay=1.0, exceptions=(Exception,))
+    @timeout(30.0)
+    async def get_transcript(self, video_url: str) -> str:
+        """
+        Fetch transcript for a YouTube video with retry and timeout.
+        
+        Args:
+            video_url: YouTube video URL
+            
+        Returns:
+            Full transcript text
+            
+        Raises:
+            TranscriptNotAvailableError: If transcript is not available
+            YouTubeAPIError: If YouTube API fails
+        """
         try:
             video_id = self.extract_video_id(video_url)
-            # Instantiate API (Required in this env)
+            logger.info(f"Fetching transcript for video: {video_id}")
+            
+            # Instantiate API
             yt = YouTubeTranscriptApi()
             
-            # Use .list() instead of .list_transcripts()
+            # Get transcript list
             transcript_list = yt.list(video_id)
             
             # Filter: prefer 'ja', then 'en'
             try:
                 transcript = transcript_list.find_transcript(['ja', 'en'])
-            except:
+            except Exception:
                 # If manual not found, try generated
                 try:
                     transcript = transcript_list.find_generated_transcript(['ja', 'en'])
-                except:
+                except Exception:
                     # Fallback to the first available
-                    transcript = next(iter(transcript_list))
+                    try:
+                        transcript = next(iter(transcript_list))
+                    except StopIteration:
+                        raise TranscriptNotAvailableError(
+                            video_id,
+                            details={"reason": "No transcripts available"}
+                        )
             
             # Fetch the actual data
             data = transcript.fetch()
@@ -55,9 +80,32 @@ class YouTubeService:
                     parts.append(t['text'])
             
             full_text = " ".join(parts)
+            
+            logger.info(
+                f"Successfully fetched transcript",
+                extra={
+                    "video_id": video_id,
+                    "length": len(full_text)
+                }
+            )
+            
             return full_text
-        except Exception as e:
-            logger.error(f"Failed to fetch transcript for {video_url}: {e}")
+            
+        except TranscriptNotAvailableError:
             raise
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch transcript",
+                extra={
+                    "video_url": video_url,
+                    "error": str(e)
+                }
+            )
+            raise YouTubeAPIError(
+                f"Failed to fetch transcript: {str(e)}",
+                details={"video_url": video_url}
+            )
+
 
 youtube_service = YouTubeService()
+
