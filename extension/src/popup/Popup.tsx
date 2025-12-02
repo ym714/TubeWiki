@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Login } from '../components/Login'
 import { api } from '../lib/api'
 import type { Note } from '../lib/api'
+import Settings from './Settings'
 import '../index.css'
 
 function Popup() {
@@ -12,6 +13,7 @@ function Popup() {
   const [note, setNote] = useState<Note | null>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'home' | 'settings'>('home')
 
   useEffect(() => {
     const init = async () => {
@@ -98,97 +100,102 @@ function Popup() {
   }
 
   return (
-    <div className="w-full h-screen bg-gray-50 p-4 overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold text-gray-900">TubeWiki</h1>
+    <div className="w-full h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b px-4 py-3 flex justify-between items-center shadow-sm z-10">
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <span className="text-blue-600">▶</span> TubeWiki
+        </h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={async () => {
-              try {
-                const res = await api.createCheckoutSession()
-                if (res.checkout_url) {
-                  window.open(res.checkout_url, '_blank')
-                }
-              } catch (e) {
-                console.error(e)
-                alert('Failed to start checkout')
-              }
-            }}
-            className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 rounded hover:opacity-90 font-medium"
+            onClick={() => setActiveTab(activeTab === 'home' ? 'settings' : 'home')}
+            className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${activeTab === 'settings' ? 'bg-gray-100 text-blue-600' : 'text-gray-600'}`}
+            title="Settings"
           >
-            Upgrade
+            ⚙️
           </button>
           <button
             onClick={() => supabase.auth.signOut()}
-            className="text-xs text-gray-500 hover:text-gray-700"
+            className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
+            title="Sign Out"
           >
-            Sign Out
+            🚪
           </button>
         </div>
       </div>
 
-      {!note && (
-        <div className="space-y-4">
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Current Video</h3>
-            <p className="text-sm text-gray-900 truncate">{currentUrl}</p>
-          </div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {activeTab === 'settings' ? (
+          <Settings />
+        ) : (
+          <div className="space-y-4">
+            {!note && (
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Current Video</h3>
+                  <p className="text-sm text-gray-900 truncate">{currentUrl}</p>
+                </div>
 
-          <button
-            onClick={handleCreateNote}
-            disabled={processing || !currentUrl.includes('youtube.com')}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {processing ? 'Generating...' : 'Generate Study Guide'}
-          </button>
+                <button
+                  onClick={handleCreateNote}
+                  disabled={processing || !currentUrl.includes('youtube.com')}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  {processing ? 'Generating...' : 'Generate Study Guide'}
+                </button>
 
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">
-              {error}
-            </div>
-          )}
-        </div>
-      )}
+                {error && (
+                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                    {error}
+                  </div>
+                )}
+              </div>
+            )}
 
-      {note && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className={`px-2 py-1 text-xs rounded-full ${note.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-              note.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'
-              }`}>
-              {note.status}
-            </span>
-            {note.status === 'COMPLETED' && (
-              <button
-                onClick={() => setNote(null)}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                New Note
-              </button>
+            {note && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${note.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                    note.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                    {note.status}
+                  </span>
+                  {note.status === 'COMPLETED' && (
+                    <button
+                      onClick={() => setNote(null)}
+                      className="text-xs text-blue-600 hover:underline font-medium"
+                    >
+                      New Note
+                    </button>
+                  )}
+                </div>
+
+                {note.status === 'PROCESSING' && (
+                  <div className="text-center py-12 bg-white rounded-lg border border-dashed">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-sm text-gray-500">Analyzing video content...</p>
+                    <p className="text-xs text-gray-400 mt-2">This may take a minute</p>
+                  </div>
+                )}
+
+                {note.status === 'COMPLETED' && (
+                  <div className="bg-white rounded-lg shadow-sm border p-4 prose prose-sm max-w-none">
+                    <h2 className="text-lg font-bold mb-2 text-gray-900">{note.title}</h2>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      {note.content?.substring(0, 300)}...
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-
-          {note.status === 'PROCESSING' && (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-sm text-gray-500">Analyzing video content...</p>
-            </div>
-          )}
-
-          {note.status === 'COMPLETED' && (
-            <div className="bg-white rounded-lg shadow-sm border p-4 prose prose-sm max-w-none">
-              <h2 className="text-lg font-bold mb-2">{note.title}</h2>
-              <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                {note.content?.substring(0, 300)}...
-              </div>
-              {/* If we had Notion URL, we'd link it here */}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
 export default Popup
+

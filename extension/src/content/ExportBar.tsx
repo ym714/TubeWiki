@@ -75,16 +75,37 @@ const ExportBar = () => {
                     showNotification('✅ Downloaded!')
                     break
                 case 'notion':
-                    showNotification('🚧 Notion export coming soon!')
+                    if (!(await storage.isConfigured('notion'))) {
+                        showNotification('⚠️ Please configure Notion in extension settings')
+                        return
+                    }
+                    showNotification('⏳ Exporting to Notion...')
+                    const notionUrl = await exportToNotion(currentNote)
+                    showNotification('✅ Exported to Notion!')
+                    window.open(notionUrl, '_blank')
                     break
                 case 'github':
-                    showNotification('🚧 GitHub export coming soon!')
+                    if (!(await storage.isConfigured('github'))) {
+                        showNotification('⚠️ Please configure GitHub in extension settings')
+                        return
+                    }
+                    showNotification('⏳ Exporting to GitHub...')
+                    const githubUrl = await exportToGitHub(currentNote)
+                    showNotification('✅ Exported to GitHub!')
+                    window.open(githubUrl, '_blank')
                     break
                 case 'obsidian':
-                    showNotification('🚧 Obsidian export coming soon!')
+                    // Obsidian doesn't strictly require config if vault name is not used, but let's check if user wants to set it
+                    // Actually, let's allow it without config, but warn if vault name is missing?
+                    // For now, simple check:
+                    // if (!(await storage.isConfigured('obsidian'))) { ... }
+                    // But maybe we just run it.
+                    await exportToObsidian(currentNote)
+                    showNotification('✅ Opened in Obsidian!')
                     break
             }
         } catch (error) {
+            console.error(error)
             showNotification('❌ Error: ' + (error as Error).message)
         }
     }
