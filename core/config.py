@@ -20,5 +20,13 @@ class Config:
             raise ValueError("WORKER_URL is missing")
         if not cls.SUPABASE_JWT_SECRET:
             raise ValueError("SUPABASE_JWT_SECRET is missing")
+        if not cls.STRIPE_SECRET_KEY:
+            raise ValueError("STRIPE_SECRET_KEY is missing")
+        if not cls.STRIPE_PRICE_ID:
+            raise ValueError("STRIPE_PRICE_ID is missing")
+
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+    STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID")
 
 config = Config()

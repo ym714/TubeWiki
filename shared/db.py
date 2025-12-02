@@ -10,7 +10,19 @@ if not DATABASE_URL:
     # Fallback for build time or testing if needed, but should fail in runtime
     DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+# Disable statement cache for Supabase Transaction Pooler (Port 6543)
+connect_args = {}
+if "postgresql" in DATABASE_URL:
+    # Ensure we use the asyncpg driver
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    connect_args["statement_cache_size"] = 0
+
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=False, 
+    future=True,
+    connect_args=connect_args
+)
 
 async def init_db():
     async with engine.begin() as conn:

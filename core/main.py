@@ -1,38 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from core.api import notes
-from core.config import config
-from shared.db import init_db
-import logging
+from core.api import notes, payment
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(title="TubeWiki Core")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # For development. In prod, specify extension ID.
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.on_event("startup")
-async def on_startup():
-    try:
-        config.validate()
-        # In production with Vercel, we might not run init_db() here if it's serverless
-        # But for Cloud Run or local, it's fine.
-        # For Vercel, usually we run migrations separately.
-        # We'll keep it for now but wrap in try/except or check env.
-        await init_db()
-    except Exception as e:
-        logger.error(f"Startup failed: {e}")
-        # raise e # Don't crash if just DB init fails (e.g. connection issues)
+# ... (existing code)
 
 app.include_router(notes.router, prefix="/api/v1")
+app.include_router(payment.router, prefix="/api/v1")
 
 @app.get("/healthz")
 def health_check():

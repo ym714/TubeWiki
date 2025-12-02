@@ -26,11 +26,35 @@ class YouTubeService:
     def get_transcript(self, video_url: str) -> str:
         try:
             video_id = self.extract_video_id(video_url)
-            # Fetch transcript. Prefer Japanese, then English.
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['ja', 'en'])
+            # Instantiate API (Required in this env)
+            yt = YouTubeTranscriptApi()
+            
+            # Use .list() instead of .list_transcripts()
+            transcript_list = yt.list(video_id)
+            
+            # Filter: prefer 'ja', then 'en'
+            try:
+                transcript = transcript_list.find_transcript(['ja', 'en'])
+            except:
+                # If manual not found, try generated
+                try:
+                    transcript = transcript_list.find_generated_transcript(['ja', 'en'])
+                except:
+                    # Fallback to the first available
+                    transcript = next(iter(transcript_list))
+            
+            # Fetch the actual data
+            data = transcript.fetch()
             
             # Combine text
-            full_text = " ".join([t['text'] for t in transcript_list])
+            parts = []
+            for t in data:
+                if hasattr(t, 'text'):
+                    parts.append(t.text)
+                elif isinstance(t, dict) and 'text' in t:
+                    parts.append(t['text'])
+            
+            full_text = " ".join(parts)
             return full_text
         except Exception as e:
             logger.error(f"Failed to fetch transcript for {video_url}: {e}")

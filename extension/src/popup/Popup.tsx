@@ -14,10 +14,42 @@ function Popup() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
+    const init = async () => {
+      try {
+        // 1. Check Auth
+        const { data: { session } } = await supabase.auth.getSession()
+        setSession(session)
+
+        if (session) {
+          // 2. Get URL
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tabs[0]?.url) {
+            const url = tabs[0].url
+            setCurrentUrl(url)
+
+            // 3. Check Existing Note
+            if (url.includes('youtube.com')) {
+              try {
+                const existingNote = await api.getNoteByUrl(url)
+                setNote(existingNote)
+                if (existingNote.status === 'PENDING' || existingNote.status === 'PROCESSING') {
+                  setProcessing(true)
+                  pollNote(existingNote.id)
+                }
+              } catch (e) {
+                // Ignore 404
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    init()
 
     const {
       data: { subscription },
@@ -25,15 +57,10 @@ function Popup() {
       setSession(session)
     })
 
-    // Get current tab URL
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs: chrome.tabs.Tab[]) => {
-      if (tabs[0]?.url) {
-        setCurrentUrl(tabs[0].url)
-      }
-    })
-
     return () => subscription.unsubscribe()
   }, [])
+
+
 
   const handleCreateNote = async () => {
     if (!currentUrl) return
@@ -74,12 +101,30 @@ function Popup() {
     <div className="w-full h-screen bg-gray-50 p-4 overflow-y-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold text-gray-900">TubeWiki</h1>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="text-xs text-gray-500 hover:text-gray-700"
-        >
-          Sign Out
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.createCheckoutSession()
+                if (res.checkout_url) {
+                  window.open(res.checkout_url, '_blank')
+                }
+              } catch (e) {
+                console.error(e)
+                alert('Failed to start checkout')
+              }
+            }}
+            className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 rounded hover:opacity-90 font-medium"
+          >
+            Upgrade
+          </button>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
 
       {!note && (

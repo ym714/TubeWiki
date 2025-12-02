@@ -4,6 +4,7 @@ sqlmodel
 asyncpg
 pydantic
 python-dotenv
+stripe
 openai
 httpx
 youtube-transcript-api
