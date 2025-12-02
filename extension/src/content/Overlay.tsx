@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { supabase } from '../lib/supabase'
+import { getSupabase } from '../lib/supabase'
+import { storage } from '../lib/storage'
 import { api } from '../lib/api'
 import type { Note } from '../lib/api'
 
@@ -12,6 +13,7 @@ const Overlay: React.FC = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        const supabase = getSupabase()
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session)
         })
@@ -54,7 +56,12 @@ const Overlay: React.FC = () => {
         setError(null)
         try {
             const currentUrl = window.location.href
-            const res = await api.createNote(currentUrl)
+            const settings = await storage.get()
+            const options = {
+                notion_token: settings.notionToken,
+                notion_page_id: settings.notionPageId
+            }
+            const res = await api.createNote(currentUrl, options)
             // Start polling
             pollNote(res.note_id)
         } catch (e: any) {

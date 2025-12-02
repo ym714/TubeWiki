@@ -15,10 +15,15 @@
   ],
   "host_permissions": [
     "https://api.notion.com/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "http://localhost:8000/*"
   ],
   "action": {
     "default_popup": "src/popup/index.html"
+  },
+  "options_ui": {
+    "page": "src/popup/index.html",
+    "open_in_tab": true
   },
   "content_scripts": [
     {
@@ -28,10 +33,31 @@
       "js": [
         "src/content/index.tsx"
       ]
+    },
+    {
+      "matches": [
+        "https://www.notion.so/*"
+      ],
+      "js": [
+        "src/content/notion.ts"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "background": {
     "service_worker": "src/background/index.ts",
     "type": "module"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "logo.png",
+        "public/icons/*",
+        "src/popup/index.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

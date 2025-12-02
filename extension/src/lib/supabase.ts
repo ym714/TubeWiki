@@ -10,11 +10,30 @@ if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(errorMsg)
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        storage: chromeStorageAdapter,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-    },
-})
+let supabaseInstance: ReturnType<typeof createClient> | null = null
+
+export const getSupabase = () => {
+    if (supabaseInstance) return supabaseInstance
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+        const errorMsg = `Missing Supabase credentials: URL=${!!supabaseUrl}, Key=${!!supabaseAnonKey}`
+        console.error(errorMsg)
+        throw new Error(errorMsg)
+    }
+
+    try {
+        supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                storage: chromeStorageAdapter,
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: false,
+            },
+        })
+    } catch (error) {
+        console.error('Failed to initialize Supabase client:', error)
+        throw error
+    }
+
+    return supabaseInstance
+}

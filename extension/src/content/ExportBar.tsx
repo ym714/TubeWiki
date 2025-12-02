@@ -1,42 +1,72 @@
 import { useState, useEffect } from 'react'
-import { api } from '../lib/api'
-import type { Note } from '../types/note'
-import { copyToClipboard } from './exporters/clipboard'
-import { downloadAsMarkdown } from './exporters/download'
+import { api, Note } from '../lib/api'
+import { storage, chromeStorageAdapter } from '../lib/storage'
+import { IconNotion, IconSettings, IconChevronDown } from './Icons'
+import './style.css'
 
 const ExportBar = () => {
     const [videoId, setVideoId] = useState<string | null>(null)
     const [note, setNote] = useState<Note | null>(null)
     const [loading, setLoading] = useState(false)
-    const [notification, setNotification] = useState<string | null>(null)
+    const [loadingText, setLoadingText] = useState('')
+    const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info' | 'warning', message: string } | null>(null)
 
     useEffect(() => {
-        // URLからvideo IDを取得
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('v')
-        setVideoId(id)
-
-        // 既存のノートを確認
-        if (id) {
-            const url = `https://www.youtube.com/watch?v=${id}`
-            api.getNoteByUrl(url)
-                .then(setNote)
-                .catch(() => setNote(null))
+        const checkVideo = () => {
+            const params = new URLSearchParams(window.location.search)
+            const v = params.get('v')
+            if (v !== videoId) {
+                setVideoId(v)
+                setNote(null)
+            }
         }
-    }, [])
 
-    const showNotification = (message: string) => {
-        setNotification(message)
-        setTimeout(() => setNotification(null), 3000)
+        checkVideo()
+        const interval = setInterval(checkVideo, 1000)
+        return () => clearInterval(interval)
+    }, [videoId])
+
+    useEffect(() => {
+        // Try to fetch existing note if available
+        const fetchNote = async () => {
+            if (!videoId) return
+            try {
+                const url = `https://www.youtube.com/watch?v=${videoId}`
+                const existingNote = await api.getNoteByUrl(url)
+                setNote(existingNote)
+            } catch (error) {
+                // Note doesn't exist yet, this is fine
+                console.log('[TubeWiki] No existing note found')
+            }
+        }
+        fetchNote()
+    }, [videoId])
+
+    const showNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+        setNotification({ type, message })
+        setTimeout(() => setNotification(null), 4000)
     }
 
     const ensureNote = async (): Promise<Note> => {
+        console.log('[TubeWiki] ensureNote called', { note, videoId })
         if (note) return note
 
         setLoading(true)
+        setLoadingText('Generating summary...')
         try {
             const url = `https://www.youtube.com/watch?v=${videoId}`
-            const newNote = await api.createNote(url)
+            console.log('[TubeWiki] Creating note for URL:', url)
+
+            // Pass Notion options if configured
+            const settings = await storage.get()
+            const options: Record<string, any> = {}
+            if (settings.notionToken && settings.notionPageId) {
+                options.notion_token = settings.notionToken
+                options.notion_page_id = settings.notionPageId
+            }
+
+            const newNote = await api.createNote(url, options)
+            console.log('[TubeWiki] Note created:', newNote)
 
             // ポーリングで完了を待つ
             let attempts = 0
@@ -44,69 +74,59 @@ const ExportBar = () => {
                 await new Promise(resolve => setTimeout(resolve, 2000))
                 try {
                     const completedNote = await api.getNote(newNote.id)
+                    console.log('[TubeWiki] Polling note status:', completedNote.status)
                     if (completedNote.status === 'COMPLETED') {
                         setNote(completedNote)
                         setLoading(false)
                         return completedNote
                     }
+                    if (completedNote.status === 'FAILED') {
+                        throw new Error(completedNote.error_message || 'Generation failed')
+                    }
                 } catch (error) {
+                    if ((error as Error).message === 'Generation failed') throw error
                     // まだ処理中
                 }
                 attempts++
             }
             throw new Error('Timeout waiting for note generation')
         } catch (error) {
+            console.error('[TubeWiki] ensureNote failed:', error)
             setLoading(false)
             throw error
         }
     }
 
-    const handleExport = async (type: 'clipboard' | 'download' | 'notion' | 'github' | 'obsidian') => {
+    const handleExport = async () => {
+        console.log('[TubeWiki] handleExport called')
+
         try {
             const currentNote = await ensureNote()
+            console.log('[TubeWiki] Note ensured:', currentNote)
 
-            switch (type) {
-                case 'clipboard':
-                    await copyToClipboard(currentNote)
-                    showNotification('✅ Copied to clipboard!')
-                    break
-                case 'download':
-                    await downloadAsMarkdown(currentNote)
-                    showNotification('✅ Downloaded!')
-                    break
-                case 'notion':
-                    if (!(await storage.isConfigured('notion'))) {
-                        showNotification('⚠️ Please configure Notion in extension settings')
-                        return
-                    }
-                    showNotification('⏳ Exporting to Notion...')
-                    const notionUrl = await exportToNotion(currentNote)
-                    showNotification('✅ Exported to Notion!')
-                    window.open(notionUrl, '_blank')
-                    break
-                case 'github':
-                    if (!(await storage.isConfigured('github'))) {
-                        showNotification('⚠️ Please configure GitHub in extension settings')
-                        return
-                    }
-                    showNotification('⏳ Exporting to GitHub...')
-                    const githubUrl = await exportToGitHub(currentNote)
-                    showNotification('✅ Exported to GitHub!')
-                    window.open(githubUrl, '_blank')
-                    break
-                case 'obsidian':
-                    // Obsidian doesn't strictly require config if vault name is not used, but let's check if user wants to set it
-                    // Actually, let's allow it without config, but warn if vault name is missing?
-                    // For now, simple check:
-                    // if (!(await storage.isConfigured('obsidian'))) { ... }
-                    // But maybe we just run it.
-                    await exportToObsidian(currentNote)
-                    showNotification('✅ Opened in Obsidian!')
-                    break
-            }
+            // Auto-Paste Flow: Save to storage & Open
+            console.log('[TubeWiki] Saving to storage for Notion paste...')
+            await chromeStorageAdapter.setItem('pending_notion_paste', String(currentNote.content || ''))
+            console.log('[TubeWiki] Saved to storage. Opening Notion...')
+            showNotification('Opening Notion...', 'success')
+            window.open('https://notion.so/new', '_blank')
+
         } catch (error) {
-            console.error(error)
-            showNotification('❌ Error: ' + (error as Error).message)
+            console.error('[TubeWiki] handleExport failed:', error)
+            const msg = (error as Error).message
+            if (msg.includes('401')) {
+                showNotification('Authentication failed. Check settings.', 'error')
+            } else {
+                showNotification(msg, 'error')
+            }
+        }
+    }
+
+    const openSettings = () => {
+        if (chrome.runtime.openOptionsPage) {
+            chrome.runtime.openOptionsPage()
+        } else {
+            window.open(chrome.runtime.getURL('src/popup/index.html'), '_blank')
         }
     }
 
@@ -115,61 +135,54 @@ const ExportBar = () => {
     return (
         <div className="tubewiki-export-bar">
             <div className="logo">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="6" fill="#065fd4" />
-                    <path d="M16 10L22 16L16 22L10 16L16 10Z" fill="white" />
-                </svg>
+                <img
+                    src={chrome.runtime.getURL('logo.png')}
+                    alt="TubeWiki"
+                    width="32"
+                    height="32"
+                    style={{ borderRadius: '6px', objectFit: 'contain' }}
+                />
                 <span>YouTube Summary</span>
             </div>
 
             <div className="export-buttons">
                 <button
-                    onClick={() => handleExport('clipboard')}
-                    title="Copy to Clipboard"
-                    disabled={loading}
-                >
-                    📋
-                </button>
-                <button
-                    onClick={() => handleExport('download')}
-                    title="Download as Markdown"
-                    disabled={loading}
-                >
-                    💾
-                </button>
-                <button
-                    onClick={() => handleExport('notion')}
+                    onClick={handleExport}
                     title="Export to Notion"
                     disabled={loading}
                 >
-                    📝
+                    <IconNotion />
+                </button>
+
+                <div style={{ width: '1px', height: '24px', background: '#e0e0e0', margin: '0 4px' }} />
+
+                <button
+                    onClick={openSettings}
+                    title="Settings"
+                >
+                    <IconSettings />
                 </button>
                 <button
-                    onClick={() => handleExport('github')}
-                    title="Export to GitHub"
-                    disabled={loading}
+                    title="Collapse"
                 >
-                    🐙
-                </button>
-                <button
-                    onClick={() => handleExport('obsidian')}
-                    title="Export to Obsidian"
-                    disabled={loading}
-                >
-                    📓
+                    <IconChevronDown />
                 </button>
             </div>
 
             {loading && (
                 <div className="loading-spinner">
                     <div className="spinner"></div>
-                    <span>Generating summary...</span>
+                    <span>{loadingText}</span>
                 </div>
             )}
 
             {notification && (
-                <div className="notification">
-                    {notification}
+                <div className={`notification ${notification.type}`}>
+                    {notification.type === 'success' && '✅ '}
+                    {notification.type === 'error' && '❌ '}
+                    {notification.type === 'warning' && '⚠️ '}
+                    {notification.type === 'info' && 'ℹ️ '}
+                    {notification.message}
                 </div>
             )}
         </div>

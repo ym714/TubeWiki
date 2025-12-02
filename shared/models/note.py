@@ -21,3 +21,4 @@ class Note(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     error_message: Optional[str] = None
+    notion_url: Optional[str] = None

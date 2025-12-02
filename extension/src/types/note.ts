@@ -10,4 +10,5 @@ export interface Note {
     created_at: string
     updated_at: string
     error_message: string | null
+    notion_url?: string | null
 }

@@ -18,3 +18,4 @@ pytest-mock
 aiosqlite
 notion-client
 slowapi
+mistune

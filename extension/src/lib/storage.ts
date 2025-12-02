@@ -1,15 +1,70 @@
 import { SupportedStorage } from '@supabase/supabase-js'
 
+const isExtensionContextValid = () => {
+    try {
+        return typeof chrome !== 'undefined' &&
+            !!chrome.runtime &&
+            !!chrome.runtime.id
+    } catch (e) {
+        return false
+    }
+}
+
 export const chromeStorageAdapter: SupportedStorage = {
     getItem: async (key: string) => {
-        const result = await chrome.storage.local.get(key)
-        return (result[key] as string) || null
+        return new Promise((resolve) => {
+            if (!isExtensionContextValid()) {
+                resolve(null)
+                return
+            }
+            try {
+                chrome.storage.local.get(key, (result) => {
+                    if (chrome.runtime.lastError) {
+                        resolve(null)
+                        return
+                    }
+                    resolve((result?.[key] as string) || null)
+                })
+            } catch (error) {
+                resolve(null)
+            }
+        })
     },
     setItem: async (key: string, value: string) => {
-        await chrome.storage.local.set({ [key]: value })
+        return new Promise((resolve) => {
+            if (!isExtensionContextValid()) {
+                resolve()
+                return
+            }
+            try {
+                chrome.storage.local.set({ [key]: value }, () => {
+                    if (chrome.runtime.lastError) {
+                        // Ignore error
+                    }
+                    resolve()
+                })
+            } catch (error) {
+                resolve()
+            }
+        })
     },
     removeItem: async (key: string) => {
-        await chrome.storage.local.remove(key)
+        return new Promise((resolve) => {
+            if (!isExtensionContextValid()) {
+                resolve()
+                return
+            }
+            try {
+                chrome.storage.local.remove(key, () => {
+                    if (chrome.runtime.lastError) {
+                        // Ignore error
+                    }
+                    resolve()
+                })
+            } catch (error) {
+                resolve()
+            }
+        })
     },
 }
 
@@ -23,21 +78,42 @@ export interface AppSettings {
 
 export const storage = {
     get: async (): Promise<AppSettings> => {
+        if (!isExtensionContextValid()) {
+            return {}
+        }
         return new Promise((resolve) => {
-            chrome.storage.sync.get(
-                ['notionToken', 'notionPageId', 'githubToken', 'githubRepo', 'obsidianVaultName'],
-                (items) => {
-                    resolve(items as AppSettings)
-                }
-            )
+            try {
+                chrome.storage.sync.get(
+                    ['notionToken', 'notionPageId', 'githubToken', 'githubRepo', 'obsidianVaultName'],
+                    (items) => {
+                        if (chrome.runtime.lastError) {
+                            resolve({})
+                            return
+                        }
+                        resolve(items as AppSettings)
+                    }
+                )
+            } catch (error) {
+                resolve({})
+            }
         })
     },
 
     set: async (settings: AppSettings): Promise<void> => {
+        if (!isExtensionContextValid()) {
+            return
+        }
         return new Promise((resolve) => {
-            chrome.storage.sync.set(settings, () => {
+            try {
+                chrome.storage.sync.set(settings, () => {
+                    if (chrome.runtime.lastError) {
+                        // Ignore errors
+                    }
+                    resolve()
+                })
+            } catch (error) {
                 resolve()
-            })
+            }
         })
     },
 

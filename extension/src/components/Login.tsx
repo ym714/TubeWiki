@@ -1,7 +1,12 @@
-import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 
-export function Login({ onLogin }: { onLogin: () => void }) {
+import { useState } from 'react'
+import { getSupabase } from '../lib/supabase'
+
+interface Props {
+    onLogin: () => void
+}
+
+export const Login = ({ onLogin }: Props) => {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
@@ -12,17 +17,20 @@ export function Login({ onLogin }: { onLogin: () => void }) {
         setLoading(true)
         setError(null)
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
+        try {
+            const supabase = getSupabase()
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            })
 
-        if (error) {
-            setError(error.message)
-        } else {
+            if (error) throw error
             onLogin()
+        } catch (e: any) {
+            setError(e.message)
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     return (

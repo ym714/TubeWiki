@@ -1,12 +1,15 @@
+
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import { Login } from '../components/Login'
+import { getSupabase } from '../lib/supabase'
+
+import { storage } from '../lib/storage'
 import { api } from '../lib/api'
 import type { Note } from '../lib/api'
 import Settings from './Settings'
+import { Login } from '../components/Login'
 import '../index.css'
 
-function Popup() {
+const Popup = () => {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [currentUrl, setCurrentUrl] = useState<string>('')
@@ -18,6 +21,7 @@ function Popup() {
   useEffect(() => {
     const init = async () => {
       try {
+        const supabase = getSupabase()
         // 1. Check Auth
         const { data: { session } } = await supabase.auth.getSession()
         setSession(session)
@@ -53,23 +57,27 @@ function Popup() {
 
     init()
 
+    const supabase = getSupabase()
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-
-
   const handleCreateNote = async () => {
     if (!currentUrl) return
     setProcessing(true)
     setError(null)
     try {
-      const res = await api.createNote(currentUrl)
+      const settings = await storage.get()
+      const options = {
+        notion_token: settings.notionToken,
+        notion_page_id: settings.notionPageId
+      }
+      const res = await api.createNote(currentUrl, options)
       pollNote(res.note_id)
     } catch (e: any) {
       setError(e.message)
@@ -88,9 +96,13 @@ function Popup() {
         }
       } catch (e) {
         console.error(e)
-        // Don't stop polling on transient error?
       }
     }, 2000)
+  }
+
+  const handleLogout = async () => {
+    const supabase = getSupabase()
+    await supabase.auth.signOut()
   }
 
   if (loading) return <div className="p-4">Loading...</div>
@@ -115,7 +127,7 @@ function Popup() {
             ⚙️
           </button>
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={handleLogout}
             className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
             title="Sign Out"
           >

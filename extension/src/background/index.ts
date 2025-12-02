@@ -1,19 +1,22 @@
-import { supabase } from '../lib/supabase'
+import { getSupabase } from '../lib/supabase'
 
+// Listen for auth changes to update badge or context menu
+const supabase = getSupabase()
 
-
-// Listen for installation
-chrome.runtime.onInstalled.addListener(() => {
-
+supabase.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_IN') {
+        chrome.action.setBadgeText({ text: '' })
+    } else if (event === 'SIGNED_OUT') {
+        chrome.action.setBadgeText({ text: '!' })
+        chrome.action.setBadgeBackgroundColor({ color: '#F00' })
+    }
 })
 
-// Listen for auth changes (if needed for other background tasks)
-supabase.auth.onAuthStateChange((event) => {
-
-
-    if (event === 'SIGNED_OUT') {
-        // Clear any local state if needed
-        chrome.storage.local.clear()
+// Check initial session
+supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session) {
+        chrome.action.setBadgeText({ text: '!' })
+        chrome.action.setBadgeBackgroundColor({ color: '#F00' })
     }
 })
 

@@ -6,7 +6,6 @@ from shared.schemas.job import JobRequest
 from worker.services.security import verify_signature
 from worker.services.youtube import youtube_service
 from worker.services.ai import ai_service
-from worker.services.notion import notion_service
 from worker.config import config
 import logging
 import json
@@ -85,45 +84,15 @@ async def process_job(
             content += f"\n\n## Mind Map\n```mermaid\n{diagram}\n```"
 
         # D. Create Notion Page
+        # Simplified Flow: We no longer create Notion pages server-side.
+        # The client handles "Copy & Open".
         notion_url = None
-        if job.options.get("notion_token") and job.options.get("notion_page_id"):
-             # We assume token/page_id are passed in options for now, or we use env if single user
-             # For multi-tenant, we need to get token from DB (User table).
-             # For MVP v1, let's assume we use the server-side token if not provided, 
-             # or we might need to fetch User from DB.
-             # Let's use the one from options if available, else skip or fail?
-             # Actually, for v1 MVP, maybe we just use the env var token for a single workspace?
-             # But the spec says "User Auth".
-             # Let's assume for now we pass it in options or use a default one.
-             pass
-
-        # For this step, let's assume we use the env var token (single user mode for dev)
-        # or we need to look up the user.
-        # Let's keep it simple: if notion_page_id is in options, we try to create it.
-        parent_page_id = job.options.get("notion_page_id")
-        if parent_page_id:
-            try:
-                notion_url = await notion_service.create_page(
-                    parent_page_id=parent_page_id,
-                    title=f"Study Guide: {job.video_url}",
-                    markdown_content=content
-                )
-            except Exception as e:
-                logger.error(f"Failed to create Notion page: {e}")
-                # Don't fail the whole job, just log? Or maybe fail?
-                # If Notion fails, maybe we want to retry?
-                raise e
 
         # E. Update Note
         note.content = content # We store markdown in DB too
         note.title = f"Study Guide: {job.video_url}"
         note.status = NoteStatus.COMPLETED
-        # We might want to store the notion_url in the Note model if we had a field for it
-        # For now, maybe append it to content or just log it.
-        if notion_url:
-            logger.info(f"Notion Page Created: {notion_url}")
-            # Maybe store it in a new field? We didn't define it in Note model.
-            # Let's just append to content for now or ignore.
+        note.notion_url = notion_url
         
         session.add(note)
         await session.commit()
