@@ -1,17 +1,9 @@
 import { supabase } from './supabase'
+import type { Note } from '../types/note'
+
+export type { Note }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-
-export interface Note {
-    id: number
-    user_id: string
-    video_url: string
-    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
-    title?: string
-    content?: string
-    error_message?: string
-    created_at: string
-}
 
 export const api = {
     async createNote(videoUrl: string) {
