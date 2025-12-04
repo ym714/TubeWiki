@@ -63,9 +63,12 @@ async def root():
         "health": "/healthz"
     }
 
+from shared.db import init_db
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
+    await init_db()
     logger.info("🚀 TubeWiki Core API starting up...")
     logger.info("📚 API documentation available at /docs")
 

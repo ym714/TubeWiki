@@ -1,27 +1,4 @@
-const waitForElement = (selector: string, timeout = 10000): Promise<Element | null> => {
-    return new Promise((resolve) => {
-        if (document.querySelector(selector)) {
-            return resolve(document.querySelector(selector))
-        }
 
-        const observer = new MutationObserver(() => {
-            if (document.querySelector(selector)) {
-                resolve(document.querySelector(selector))
-                observer.disconnect()
-            }
-        })
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        })
-
-        setTimeout(() => {
-            observer.disconnect()
-            resolve(null)
-        }, timeout)
-    })
-}
 
 const init = async () => {
     console.log('[TubeWiki] Notion content script loaded')
@@ -52,58 +29,110 @@ const init = async () => {
     console.log('[TubeWiki] Found pending content, attempting to paste...')
 
     // Wait for the editor to be ready
-    // Notion uses contenteditable divs. The main one usually has class 'notion-page-content'
-    // or we can look for the default block.
-    const editorSelector = '.notion-page-content'
-    const editor = await waitForElement(editorSelector)
-
-    if (!editor) {
-        console.error('[TubeWiki] Could not find Notion editor')
-        return
+    // Notion structure is complex. We look for the main content editable area.
+    // Try multiple selectors
+    const getEditor = () => {
+        return document.querySelector('.notion-page-content') ||
+            document.querySelector('[contenteditable="true"]')
     }
 
-    // Give it a moment to fully settle
-    await new Promise(r => setTimeout(r, 1000))
+    let attempts = 0
+    const maxAttempts = 20
 
-    try {
-        // Focus the editor
-        // We try to find the first text block
-        const firstBlock = document.querySelector('[contenteditable="true"]') as HTMLElement
-        if (firstBlock) {
-            firstBlock.focus()
+    const tryPaste = async () => {
+        const editor = getEditor()
 
-            // Use execCommand 'insertText' to simulate typing/pasting
-            // This is deprecated but still widely supported and works for this use case
-            // ensuring Notion's internal state updates correctly.
-            document.execCommand('insertText', false, content)
-
-            // Clear the storage so we don't paste again on reload
-            chrome.storage.local.remove('pending_notion_paste')
-
-            // Show success message
-            const toast = document.createElement('div')
-            toast.style.position = 'fixed'
-            toast.style.bottom = '20px'
-            toast.style.right = '20px'
-            toast.style.backgroundColor = '#065fd4'
-            toast.style.color = 'white'
-            toast.style.padding = '12px 24px'
-            toast.style.borderRadius = '8px'
-            toast.style.zIndex = '9999'
-            toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
-            toast.style.fontFamily = 'sans-serif'
-            toast.textContent = '✅ Pasted from TubeWiki'
-            document.body.appendChild(toast)
-
-            setTimeout(() => {
-                toast.remove()
-            }, 3000)
-        } else {
-            console.error('[TubeWiki] Could not find contenteditable element')
+        if (!editor && attempts < maxAttempts) {
+            attempts++
+            console.log(`[TubeWiki] Editor not found, retrying (${attempts}/${maxAttempts})...`)
+            setTimeout(tryPaste, 500)
+            return
         }
-    } catch (e) {
-        console.error('[TubeWiki] Failed to paste content', e)
+
+        if (!editor) {
+            console.error('[TubeWiki] Could not find Notion editor after multiple attempts')
+            alert('TubeWiki: Failed to find Notion editor. Please paste manually.')
+            return
+        }
+
+        console.log('[TubeWiki] Editor found, focusing...')
+
+        // Find the specific contenteditable element
+        const contentEditable = (editor.querySelector('[contenteditable="true"]') as HTMLElement) || (editor as HTMLElement)
+
+        if (contentEditable) {
+            contentEditable.focus()
+            // Ensure focus is really there
+            await new Promise(r => setTimeout(r, 200))
+
+            try {
+                // Method 1: Try to set innerText directly
+                console.log('[TubeWiki] Attempting direct text insertion...')
+
+                // Clear existing content
+                contentEditable.innerText = ''
+
+                // Insert content
+                contentEditable.innerText = content
+
+                // Trigger input event to notify Notion
+                const inputEvent = new InputEvent('input', {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType: 'insertText',
+                    data: content
+                })
+                contentEditable.dispatchEvent(inputEvent)
+
+                // Also trigger change event
+                const changeEvent = new Event('change', { bubbles: true })
+                contentEditable.dispatchEvent(changeEvent)
+
+                console.log('[TubeWiki] ✅ Content inserted successfully!')
+                showToast('✅ Content pasted automatically!')
+                finishPaste()
+
+            } catch (e) {
+                console.error('[TubeWiki] Direct insertion failed:', e)
+
+                // Fallback: Copy to clipboard and show instruction
+                try {
+                    await navigator.clipboard.writeText(content)
+                    showToast('📋 Content copied! Press Cmd+V to paste.')
+                    finishPaste(false)
+                } catch (clipError) {
+                    console.error('[TubeWiki] Clipboard fallback also failed:', clipError)
+                    showToast('❌ Please reload and try again.')
+                }
+            }
+        }
     }
+
+    const finishPaste = (clearStorage = true) => {
+        if (clearStorage) {
+            chrome.storage.local.remove('pending_notion_paste')
+        }
+    }
+
+    const showToast = (message: string) => {
+        const toast = document.createElement('div')
+        toast.style.position = 'fixed'
+        toast.style.bottom = '20px'
+        toast.style.right = '20px'
+        toast.style.backgroundColor = '#065fd4'
+        toast.style.color = 'white'
+        toast.style.padding = '12px 24px'
+        toast.style.borderRadius = '8px'
+        toast.style.zIndex = '9999'
+        toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+        toast.style.fontFamily = 'sans-serif'
+        toast.textContent = message
+        document.body.appendChild(toast)
+        setTimeout(() => toast.remove(), 5000)
+    }
+
+    // Start trying to paste
+    tryPaste()
 }
 
 init()

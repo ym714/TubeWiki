@@ -106,9 +106,37 @@ const ExportBar = () => {
 
             // Auto-Paste Flow: Save to storage & Open
             console.log('[TubeWiki] Saving to storage for Notion paste...')
-            await chromeStorageAdapter.setItem('pending_notion_paste', String(currentNote.content || ''))
+
+            if (!currentNote.content) {
+                console.error('[TubeWiki] Note content is empty!', currentNote)
+                throw new Error('Generated note has no content')
+            }
+
+            console.log('[TubeWiki] Content length:', currentNote.content.length)
+
+            await chromeStorageAdapter.setItem('pending_notion_paste', currentNote.content)
+
+            // Verify storage
+            const saved = await chromeStorageAdapter.getItem('pending_notion_paste')
+            console.log('[TubeWiki] Verified storage save. Length:', saved?.length)
+
+            if (saved !== currentNote.content) {
+                console.error('[TubeWiki] Storage save failed verification!')
+                throw new Error('Failed to save to storage')
+            }
+
             console.log('[TubeWiki] Saved to storage. Opening Notion...')
-            showNotification('Opening Notion...', 'success')
+
+            // Copy to clipboard BEFORE opening Notion (to avoid permission issues)
+            try {
+                await navigator.clipboard.writeText(currentNote.content)
+                console.log('[TubeWiki] Content copied to clipboard')
+                showNotification('✅ Opening Notion... Press Cmd+V to paste!', 'success')
+            } catch (clipboardError) {
+                console.warn('[TubeWiki] Clipboard copy failed:', clipboardError)
+                showNotification('Opening Notion...', 'success')
+            }
+
             window.open('https://notion.so/new', '_blank')
 
         } catch (error) {

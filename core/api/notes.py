@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 async def create_note(
     request: JobRequest,
     session: AsyncSession = Depends(get_session),
-    user_id: str = Depends(get_current_user)
 ):
-    # Override user_id from token to ensure security
-    request.user_id = user_id
+    # Use anonymous user_id
+    if not request.user_id:
+        request.user_id = "anonymous"
 
     # 1. Create Note in DB
     new_note = Note(
@@ -29,13 +29,34 @@ async def create_note(
     await session.commit()
     await session.refresh(new_note)
 
-    # 2. Publish to QStash
+    # 2. Publish to QStash or Call Worker Directly
     try:
         # We might want to pass the note_id to the worker
         request.options["note_id"] = new_note.id
-        await qstash_service.publish_job(request)
+        
+        import os
+        import httpx
+        
+        worker_url = os.getenv("WORKER_URL", "http://localhost:8001")
+        
+        # If running locally (localhost), bypass QStash and call worker directly
+        if "localhost" in worker_url or "127.0.0.1" in worker_url:
+            logger.info(f"Running locally, bypassing QStash. Calling worker at {worker_url}")
+            async with httpx.AsyncClient() as client:
+                # The worker endpoint expects the same payload
+                response = await client.post(
+                    f"{worker_url}/webhooks/process-job",
+                    json=request.dict(),
+                    timeout=120.0  # Increased timeout for AI generation
+                )
+                if response.status_code >= 400:
+                    raise Exception(f"Worker returned {response.status_code}: {response.text}")
+        else:
+            # Production: Use QStash
+            await qstash_service.publish_job(request)
+            
     except Exception as e:
-        # If QStash fails, we might want to mark note as FAILED or delete it
+        # If QStash/Worker fails, we might want to mark note as FAILED or delete it
         # For now, just log and return error (or keep it pending for retry?)
         # Since we return 202, we should probably rollback or mark failed.
         logger.error(f"Failed to publish job: {e}")
@@ -43,7 +64,7 @@ async def create_note(
         new_note.error_message = str(e)
         session.add(new_note)
         await session.commit()
-        raise HTTPException(status_code=500, detail="Failed to queue job")
+        raise HTTPException(status_code=500, detail=f"Failed to queue job: {str(e)}")
 
     return {"message": "Job accepted", "note_id": new_note.id, "status": "PENDING"}
 
@@ -51,8 +72,8 @@ async def create_note(
 async def get_note(
     note_id: int,
     session: AsyncSession = Depends(get_session),
-    user_id: str = Depends(get_current_user)
 ):
+    user_id = "anonymous"
     note = await session.get(Note, note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
@@ -67,8 +88,8 @@ async def get_note(
 async def get_note_by_url(
     video_url: str,
     session: AsyncSession = Depends(get_session),
-    user_id: str = Depends(get_current_user)
 ):
+    user_id = "anonymous"
     from sqlmodel import select
     statement = select(Note).where(Note.video_url == video_url, Note.user_id == user_id)
     results = await session.exec(statement)

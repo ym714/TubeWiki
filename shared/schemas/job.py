@@ -4,7 +4,7 @@ from shared.utils.validators import validate_youtube_url
 
 class JobRequest(BaseModel):
     video_url: str
-    user_id: str
+    user_id: str = "anonymous"
     preset: Optional[str] = "default"
     options: Optional[Dict[str, Any]] = {}
 
