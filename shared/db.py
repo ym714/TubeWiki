@@ -7,9 +7,12 @@ import os
 # Use shared config or os.getenv directly to avoid circular imports if config is in core
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Strict validation: DATABASE_URL is required in production
 if not DATABASE_URL:
-    # Fallback for build time or testing if needed, but should fail in runtime
-    DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+    raise ValueError(
+        "DATABASE_URL environment variable is not set. "
+        "Please configure it in Railway settings or your .env file."
+    )
 
 # Disable statement cache for Supabase Transaction Pooler (Port 6543)
 connect_args = {}
