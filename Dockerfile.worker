@@ -17,11 +17,15 @@ COPY shared /app/shared
 # Copy worker code
 COPY worker /app/worker
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Set python path to include /app so we can import shared
 ENV PYTHONPATH=/app
 
 # Railway provides PORT env var, default to 8080 for local testing
 ENV PORT=8080
 
-# Use shell form to allow $PORT expansion
-CMD uvicorn worker.main:app --host 0.0.0.0 --port $PORT
+# Use entrypoint script for proper PORT variable expansion
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
