@@ -39,11 +39,17 @@ class AIService:
         (Provide an in-depth explanation of the content, organized by logical sections or topics. Include specific examples and details mentioned in the video.)
         
         ## Quiz
-        (Create 3 multiple choice or short answer questions to test understanding. 
-        Format:
-        **Q1:** [Question]
-        **A:** [Answer]
-        )
+        (Create 3 multiple choice or short answer questions to test understanding.)
+        
+        ### Questions
+        1. [Question 1]
+        2. [Question 2]
+        3. [Question 3]
+        
+        ### Answers
+        1. [Answer 1]
+        2. [Answer 2]
+        3. [Answer 3]
 
         Transcript:
         {transcript[:15000]} 
