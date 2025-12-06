@@ -23,5 +23,9 @@ ENV PYTHONPATH=/app
 # Railway provides PORT env var
 ENV PORT=8080
 
+# Copy entrypoint script
+COPY docker-entrypoint.core.sh /app/docker-entrypoint.core.sh
+RUN chmod +x /app/docker-entrypoint.core.sh
+
 # Command to run the application
-CMD uvicorn core.main:app --host 0.0.0.0 --port $PORT
+ENTRYPOINT ["/app/docker-entrypoint.core.sh"]
