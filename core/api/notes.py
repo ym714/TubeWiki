@@ -41,7 +41,7 @@ async def create_note(
         
         # If running locally (localhost) or internal Railway network, bypass QStash and call worker directly
         if "localhost" in worker_url or "127.0.0.1" in worker_url or "railway.internal" in worker_url:
-            logger.info(f"Running locally, bypassing QStash. Calling worker at {worker_url}")
+            logger.warning(f"DEBUG: Bypassing QStash. Calling worker at {worker_url}")
             async with httpx.AsyncClient() as client:
                 # The worker endpoint expects the same payload
                 response = await client.post(
