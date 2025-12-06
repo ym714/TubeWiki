@@ -14,7 +14,7 @@ async def on_startup():
         config.validate()
     except Exception as e:
         logger.error(f"Startup failed: {e}")
-        # raise e
+        raise e
 
 app.include_router(webhook.router)
 
