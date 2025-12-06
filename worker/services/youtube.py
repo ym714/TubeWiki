@@ -45,19 +45,32 @@ class YouTubeService:
             video_id = self.extract_video_id(video_url)
             logger.info(f"Fetching transcript for video: {video_id}")
             
-            # Instantiate API
-            yt = YouTubeTranscriptApi()
-            
-            # Get transcript list
-            transcript_list = yt.list(video_id)
-            
-            # Filter: prefer 'ja', then 'en'
+            # Get transcript list using static method
             try:
-                transcript = transcript_list.find_transcript(['ja', 'en'])
-            except Exception:
-                # If manual not found, try generated
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            except Exception as e:
+                # If listing fails, try direct fetch as fallback (sometimes works when list fails)
+                logger.warning(f"list_transcripts failed, trying direct get_transcript: {e}")
                 try:
-                    transcript = transcript_list.find_generated_transcript(['ja', 'en'])
+                    # Try fetching ja, then en, then en-US
+                    data = YouTubeTranscriptApi.get_transcript(video_id, languages=['ja', 'en', 'en-US'])
+                    
+                    # Helper to format data same as fetch()
+                    full_text = " ".join([t['text'] for t in data])
+                    logger.info(f"Successfully fetched transcript via fallback", extra={"video_id": video_id, "length": len(full_text)})
+                    return full_text
+                except Exception as direct_error:
+                    raise e  # Raise the original list error if fallback also fails
+
+            # Filter: prefer 'ja', then 'en'
+            transcript = None
+            try:
+                # Try manual first
+                transcript = transcript_list.find_manually_created_transcript(['ja', 'en', 'en-US'])
+            except Exception:
+                # Try generated
+                try:
+                    transcript = transcript_list.find_generated_transcript(['ja', 'en', 'en-US'])
                 except Exception:
                     # Fallback to the first available
                     try:
