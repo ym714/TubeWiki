@@ -25,21 +25,24 @@ class AIService:
         You are an expert study assistant. Create a comprehensive study guide from the following YouTube transcript.
         The output must be in Markdown format.
         
+        IMPORTANT: Output in the same language as the transcript (likely Japanese).
+
         Structure:
         # Title
         ## Summary
-        (Brief summary of the video)
+        (Provide a detailed and comprehensive summary of the video content, capturing the main narrative and arguments.)
+        
         ## Key Concepts
-        (Bulleted list of key points)
+        (List the most important concepts, terms, and ideas discussed. Use bullet points with brief explanations for each.)
+        
         ## Detailed Notes
-        (In-depth explanation of the content)
+        (Provide an in-depth explanation of the content, organized by logical sections or topics. Include specific examples and details mentioned in the video.)
+        
         ## Quiz
-        (3 multiple choice questions. Format each question using HTML <details> tags so the answer is hidden by default.
-        Example:
-        <details>
-        <summary>Question 1: ...</summary>
-        Answer: ...
-        </details>
+        (Create 3 multiple choice or short answer questions to test understanding. 
+        Format:
+        **Q1:** [Question]
+        **A:** [Answer]
         )
 
         Transcript:
@@ -50,7 +53,7 @@ class AIService:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": "You are a helpful assistant. You output in the same language as the input text."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7
@@ -66,7 +69,19 @@ class AIService:
 
         prompt = f"""
         Create a Mermaid.js diagram code that visualizes the key concepts from the following study guide.
-        Return ONLY the mermaid code block (e.g. graph TD...). Do not include markdown backticks.
+        
+        RULES:
+        1. Return ONLY the mermaid code block. Do not include markdown backticks (```).
+        2. Use `graph TD` (Top-Down) orientation.
+        3. Use alphanumeric node IDs (e.g., A, B, C) and put the text in quotes (e.g., A["Text"]).
+        4. DO NOT use special characters or spaces in node IDs.
+        5. Ensure the graph syntax is valid.
+        6. The text inside quotes should be in the same language as the study guide (Japanese).
+
+        Example:
+        graph TD
+        A["Main Concept"] --> B["Sub Concept 1"]
+        A --> C["Sub Concept 2"]
         
         Study Guide:
         {content[:5000]}
