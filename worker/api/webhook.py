@@ -72,9 +72,11 @@ async def process_job(
     try:
         # A. Fetch Transcript
         transcript = await youtube_service.get_transcript(job.video_url)
+        logger.info(f"Transcript fetched. Length: {len(transcript)}")
         
         # B. Generate Content
         content = await ai_service.generate_note_content(transcript)
+        logger.info(f"Content generated. Length: {len(content) if content else 0}")
         
         # C. Generate Diagram
         diagram = await ai_service.generate_diagram(content)

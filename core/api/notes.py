@@ -82,6 +82,7 @@ async def get_note(
     if note.user_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this note")
         
+    logger.info(f"Returning note {note_id}. Content length: {len(note.content) if note.content else 0}")
     return note
 
 @router.get("/notes/by-url/", response_model=Note)
