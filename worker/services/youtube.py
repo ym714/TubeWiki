@@ -45,18 +45,22 @@ class YouTubeService:
             video_id = self.extract_video_id(video_url)
             logger.info(f"Fetching transcript for video: {video_id}")
             
-            # Get transcript list using static method
+            # Instantiate API (not thread-safe, so new instance per request)
+            yt_api = YouTubeTranscriptApi()
+            
+            # Get transcript list
             try:
-                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                transcript_list = yt_api.list(video_id)
             except Exception as e:
                 # If listing fails, try direct fetch as fallback (sometimes works when list fails)
-                logger.warning(f"list_transcripts failed, trying direct get_transcript: {e}")
+                logger.warning(f"list() failed, trying direct fetch(): {e}")
                 try:
                     # Try fetching ja, then en, then en-US
-                    data = YouTubeTranscriptApi.get_transcript(video_id, languages=['ja', 'en', 'en-US'])
+                    # fetch() returns FetchedTranscript which is iterable of snippets
+                    fetched_transcript = yt_api.fetch(video_id, languages=['ja', 'en', 'en-US'])
                     
-                    # Helper to format data same as fetch()
-                    full_text = " ".join([t['text'] for t in data])
+                    # Helper to format data
+                    full_text = " ".join([t.text for t in fetched_transcript])
                     logger.info(f"Successfully fetched transcript via fallback", extra={"video_id": video_id, "length": len(full_text)})
                     return full_text
                 except Exception as direct_error:
@@ -82,11 +86,13 @@ class YouTubeService:
                         )
             
             # Fetch the actual data
+            # fetch() returns FetchedTranscript
             data = transcript.fetch()
             
             # Combine text
             parts = []
             for t in data:
+                # t is FetchedTranscriptSnippet
                 if hasattr(t, 'text'):
                     parts.append(t.text)
                 elif isinstance(t, dict) and 'text' in t:

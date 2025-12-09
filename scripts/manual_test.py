@@ -19,7 +19,7 @@ async def main():
     # 1. Fetch Transcript
     print("\n[1] Fetching Transcript...")
     try:
-        transcript = youtube_service.get_transcript(video_url)
+        transcript = await youtube_service.get_transcript(video_url)
         print(f"Success! Transcript length: {len(transcript)} chars")
         print(f"Preview: {transcript[:200]}...")
     except Exception as e:
