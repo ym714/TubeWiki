@@ -70,7 +70,7 @@ const ExportBar = () => {
 
             // ポーリングで完了を待つ
             let attempts = 0
-            while (attempts < 30) {
+            while (attempts < 90) {
                 await new Promise(resolve => setTimeout(resolve, 2000))
                 try {
                     const completedNote = await api.getNote(newNote.id)

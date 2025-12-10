@@ -72,11 +72,15 @@ async def process_job(
     try:
         # A. Fetch Transcript
         transcript = await youtube_service.get_transcript(job.video_url)
-        logger.warning(f"DEBUG: Transcript fetched. Length: {len(transcript)}")
+        logger.debug(f"DEBUG: Transcript fetched. Length: {len(transcript)}")
         
         # B. Generate Content
         content = await ai_service.generate_note_content(transcript)
-        logger.warning(f"DEBUG: Content generated. Length: {len(content) if content else 0}")
+        
+        if not content or len(content.strip()) == 0:
+            raise ValueError("Generated content is empty")
+
+        logger.debug(f"DEBUG: Content generated. Length: {len(content) if content else 0}")
         
         # C. Generate Diagram
         diagram = await ai_service.generate_diagram(content)

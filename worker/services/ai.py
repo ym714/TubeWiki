@@ -64,7 +64,11 @@ class AIService:
                 ],
                 temperature=0.7
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            if not content:
+                logger.warning("Groq returned empty content")
+                return ""
+            return content
         except Exception as e:
             logger.error(f"Groq generation failed: {e}")
             raise
